@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::common::LinesIterator;
 
@@ -7,7 +7,6 @@ enum Node {
     Start,
     Empty,
     Splitter,
-    End,
 }
 
 impl Node {
@@ -94,46 +93,26 @@ impl Manifold {
         }
     }
 
-    fn search_up_for_splitter(
-        &self,
-        pos: (usize, usize),
-        mut seen: HashSet<(usize, usize)>,
-    ) -> HashSet<(usize, usize)> {
-        let mut out = HashSet::new();
-        let (r, c) = pos;
-        for i in (0..r).rev() {
-            if matches!(self.grid[i][c], Node::Splitter | Node::Start) {
-                break;
-            }
-            if (c > 0)
-                && matches!(self.grid[i][c - 1], Node::Splitter | Node::Start)
-            {
-                out.insert((i, c - 1));
-                seen.insert((i, c - 1));
-            }
-            if (c + 1 < self.m)
-                && matches!(self.grid[i][c + 1], Node::Splitter | Node::Start)
-            {
-                out.insert((i, c + 1));
-                seen.insert((i, c + 1));
-            }
-        }
-        out
-    }
-
-    fn build_adj_2(&self) -> HashMap<(usize, usize), HashSet<(usize, usize)>> {}
-
-    fn build_adj(&self) -> HashMap<(usize, usize), HashSet<(usize, usize)>> {
-        let mut out = HashMap::new();
-        let mut to_add: HashSet<(usize, usize)> =
+    fn build_adj(&self) -> BTreeMap<(usize, usize), HashSet<(usize, usize)>> {
+        let mut out = BTreeMap::new();
+        let ends: HashSet<(usize, usize)> =
             (0..self.m).map(|c| (self.n, c)).collect();
+        let mut to_add: HashSet<(usize, usize)> = ends.clone();
         while !to_add.is_empty() {
             let mut add_next = HashSet::new();
             for pos in to_add.drain() {
                 let mut pos_adj = HashSet::new();
                 let (r, c) = pos;
                 for i in (0..r).rev() {
-                    if matches!(self.grid[i][c], Node::Splitter | Node::Start) {
+                    if matches!(self.grid[i][c], Node::Splitter) {
+                        break;
+                    }
+                    if matches!(self.grid[i][c], Node::Start) {
+                        let new_pos = (i, c);
+                        pos_adj.insert(new_pos);
+                        if !out.contains_key(&new_pos) {
+                            add_next.insert(new_pos);
+                        }
                         break;
                     }
                     if (c > 0) && matches!(self.grid[i][c - 1], Node::Splitter)
@@ -158,28 +137,29 @@ impl Manifold {
             }
             to_add = add_next;
         }
+        out.insert((self.n + 1, 0), ends);
         out
     }
 
     fn compute_num_paths(&self) -> usize {
-        let adj = self.build_adj();
-        assert!(adj.contains_key(&self.start));
-        let num_paths_to: HashMap<(usize, usize), usize> = HashMap::new();
-
-        let mut frontier = vec![self.start];
-
-        while !frontier.is_empty() {
-            frontier.entry()
+        let mut adj = self.build_adj();
+        let mut num_paths_to: HashMap<(usize, usize), usize> = HashMap::new();
+        while let Some((pos, nbrs)) = adj.pop_first() {
+            if pos == self.start {
+                num_paths_to.insert(pos, 1);
+            } else {
+                let mut num_paths: usize = 0;
+                for nbr in nbrs {
+                    if let Some(to_add) = num_paths_to.get(&nbr) {
+                        num_paths += to_add;
+                    }
+                }
+                num_paths_to.insert(pos, num_paths);
+            }
         }
-
-        num_paths_to
-            .iter()
-            .filter_map(|(k, v)| if k.0 + 1 == self.n { Some(v) } else { None })
-            .sum()
+        *num_paths_to.get(&(self.n + 1, 0)).unwrap()
     }
 }
-
-impl Manifold {}
 
 fn parse_input(lines: &mut LinesIterator) -> Vec<Vec<Node>> {
     lines
@@ -196,6 +176,6 @@ pub fn run1(lines: &mut LinesIterator) -> String {
 
 pub fn run2(lines: &mut LinesIterator) -> String {
     let grid = parse_input(lines);
-    let mut mf = Manifold::from_grid(grid);
-    format!("{:?}", mf.build_adj())
+    let mf = Manifold::from_grid(grid);
+    format!("{:?}", mf.compute_num_paths())
 }
