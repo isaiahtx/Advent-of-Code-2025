@@ -18,7 +18,9 @@ pub fn run_w_args(args: &[String]) -> String {
     let day_number: u8 = match args[1].parse() {
         Ok(n) if n > 0 => n,
         _ => {
-            eprintln!("Please provide a valid positive integer for the day number");
+            eprintln!(
+                "Please provide a valid positive integer for the day number"
+            );
             process::exit(1);
         }
     };
@@ -45,21 +47,19 @@ pub fn run_w_args(args: &[String]) -> String {
         process::exit(1);
     });
 
-    let output = match part {
+    match part {
         1 => match day_number {
             7 => days::day07::run1(&mut lines),
             _ => panic!("Incomplete day."),
         },
         2 => match day_number {
             7 => days::day07::run2(&mut lines),
-            _ => panic!("huh?"),
+            _ => panic!("Incomplete day."),
         },
         _ => {
-            panic!("huh?");
+            panic!("YOU SHOULD NEVER SEE THIS!!!!")
         }
-    };
-
-    output
+    }
 }
 
 fn read_lines<P>(filename: P) -> io::Result<LinesIterator>
